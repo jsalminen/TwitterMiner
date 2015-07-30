@@ -1,0 +1,72 @@
+---
+title: "Twitter exploration"
+author: "Juho Salminen"
+date: "30 Jul 2015"
+output: html_document
+---
+
+```{r, echo=FALSE}
+library(knitr)
+```
+
+
+```{r, echo=FALSE}
+opts_chunk$set(echo = FALSE, warning=FALSE, message = FALSE)
+```
+
+```{r}
+# Load libraries
+library(ggplot2)
+library(twitteR)
+library(streamR)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+
+# Load and preprocess data
+filenames <- list.files(path = "./Data/Raw data",full.names = T)
+datalist <- lapply(filenames, function(x) parseTweets(x, simplify = TRUE, 
+                                                      verbose = FALSE))
+tweets <- Reduce(function(x,y) rbind(x,y), datalist)
+```
+
+
+# Popular tweets
+```{r}
+texts <- head(tweets[with (tweets, order(-retweet_count)), ], 100)
+texts <- texts[!duplicated(texts$text), ]
+
+texts <- rbind(texts, head(tweets[with (tweets, order(-favourites_count)), ], 100))
+texts <- texts[!duplicated(texts$text), ]
+texts <- texts[with (texts, order(-favourites_count, -retweet_count)), ]
+kable(head(texts[, c("screen_name", "text", "favourites_count", 
+                     "retweet_count")], 200))
+```
+
+# Text mining
+```{r}
+# Create corpus
+tweet_corpus <- Corpus(VectorSource(tweets$text))
+
+# Clean up
+tweet_corpus <- tm_map(tweet_corpus, 
+                       content_transformer(function(x) iconv(enc2utf8(x),"ASCII", 
+                                                             sub = "")))
+tweet_corpus <- tm_map(tweet_corpus, content_transformer(tolower), mc.cores=1)
+tweet_corpus <- tm_map(tweet_corpus, removePunctuation, mc.cores=1)
+tweet_corpus <- tm_map(tweet_corpus, function(x) removeWords(x, stopwords()),
+                       mc.cores=1)
+more_stopwords <- c("wont", "cant", "dont", "youre", "theyre", "hasnt", "havent",
+                    "hadnt", "thats", "isnt")
+tweet_corpus <- tm_map(tweet_corpus, function(x) removeWords(x, more_stopwords),
+                       mc.cores = 1)
+
+tweet_corpus <- tm_map(tweet_corpus, stemDocument, mc.cores = 1)
+
+# Create wordcloud
+pal2 <- brewer.pal(8, "Dark2")
+wordcloud(tweet_corpus, min.freq = 2, max.words = 100, random.order = F,
+          colors = pal2)
+```
+
+
