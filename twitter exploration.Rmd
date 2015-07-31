@@ -22,6 +22,7 @@ library(streamR)
 library(tm)
 library(wordcloud)
 library(RColorBrewer)
+library(pander)
 
 # Load and preprocess data
 filenames <- list.files(path = "./Data/Raw data",full.names = T)
@@ -38,9 +39,13 @@ texts <- texts[!duplicated(texts$text), ]
 
 texts <- rbind(texts, head(tweets[with (tweets, order(-favourites_count)), ], 100))
 texts <- texts[!duplicated(texts$text), ]
-texts <- texts[with (texts, order(-favourites_count, -retweet_count)), ]
-kable(head(texts[, c("screen_name", "text", "favourites_count", 
-                     "retweet_count")], 200))
+texts <- texts[with (texts, order(-retweet_count, -favourites_count)), ]
+texts$text <- sapply(texts$text, function(x) iconv(enc2utf8(x),"ASCII", sub = ""))
+pander(head(texts[, c("screen_name", "text", "retweet_count", 
+                     "favourites_count")], 200), 
+       split.table = Inf, 
+       justify = c("left", "left", "left", "right", "right"))
+
 ```
 
 # Text mining
@@ -67,6 +72,7 @@ tweet_corpus <- tm_map(tweet_corpus, stemDocument, mc.cores = 1)
 pal2 <- brewer.pal(8, "Dark2")
 wordcloud(tweet_corpus, min.freq = 2, max.words = 100, random.order = F,
           colors = pal2)
+
 ```
 
 
