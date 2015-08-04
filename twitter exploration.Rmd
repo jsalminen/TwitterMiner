@@ -20,6 +20,7 @@ library(ggplot2)
 library(twitteR)
 library(streamR)
 library(tm)
+library(RWeka)
 library(wordcloud)
 library(RColorBrewer)
 library(pander)
@@ -51,8 +52,10 @@ pander(head(texts[, c("screen_name", "text", "retweet_count",
 # Text mining
 ```{r}
 # Create corpus
-tweet_corpus <- Corpus(VectorSource(tweets$text))
-
+texts <- tweets$text[!duplicated(tweets$text)]
+tweet_corpus <- Corpus(VectorSource(texts))
+nrow(tweets)
+length(texts)
 # Clean up
 tweet_corpus <- tm_map(tweet_corpus, 
                        content_transformer(function(x) iconv(enc2utf8(x),"ASCII", 
@@ -68,11 +71,39 @@ tweet_corpus <- tm_map(tweet_corpus, function(x) removeWords(x, more_stopwords),
 
 tweet_corpus <- tm_map(tweet_corpus, stemDocument, mc.cores = 1)
 
+# Function to print most popular words
+print_ngram <- function(corpus, n) {
+  # Create tokenizers
+  tokenizer <- function(x) NGramTokenizer(x, Weka_control(min = n, max = n))
+  # Create n-gram document-term matrix
+  options(mc.cores=1)
+  dtm <- DocumentTermMatrix(corpus, control = list(tokenize = tokenizer))
+  # Convert to data frame
+  dtm <- as.data.frame(as.matrix(dtm))
+  freqs <- data.frame(Term = names(dtm), Frequency = colSums(dtm))
+  row.names(freqs) <- c(1:nrow(freqs))
+  freqs <- freqs[with (freqs, order(-Frequency)), ]
+  kable(head(freqs, 30))
+}
+
 # Create wordcloud
 pal2 <- brewer.pal(8, "Dark2")
 wordcloud(tweet_corpus, min.freq = 2, max.words = 100, random.order = F,
           colors = pal2)
-
 ```
 
+# Most popular words
+```{r}
+print_ngram(tweet_corpus, 1)
+```
+
+# Most popular 2-grams
+```{r}
+print_ngram(tweet_corpus, 2)
+```
+
+# Most popular 3-grams
+```{r}
+print_ngram(tweet_corpus, 3)
+```
 
